@@ -1,9 +1,8 @@
 // src/app/(protected)/responden/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-// Ganti import ini sesuai struktur Anda:
 import RespondenModal from "../../../components/modals/responden-modal";
 
 interface Platform {
@@ -23,14 +22,14 @@ interface Responden {
 }
 
 export default function RespondenPage() {
-  const [responden, setResponden] = useState<Responden[]>([]);
+  const [allResponden, setAllResponden] = useState<Responden[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingResponden, setEditingResponden] = useState<Responden | null>(null);
-  
+
   const [filters, setFilters] = useState({
     platformId: "",
     search: ""
@@ -42,34 +41,24 @@ export default function RespondenPage() {
     pages: 1
   });
 
-  // Fetch data
+  // Ambil semua data responden (sekali saja)
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch platforms
+
+      // Ambil daftar platform
       const platformsRes = await fetch("/api/platform");
       const platformsData = await platformsRes.json();
       if (platformsData.success) {
         setPlatforms(platformsData.data);
       }
 
-      // Build query string
-      const params = new URLSearchParams({
-        page: pagination.page.toString(),
-        limit: pagination.limit.toString()
-      });
-      if (filters.platformId) {
-        params.append("platformId", filters.platformId);
-      }
-
-      // Fetch responden
-      const respondenRes = await fetch(`/api/responden?${params}`);
+      // Ambil semua responden (limit besar untuk memastikan semua data terambil)
+      const respondenRes = await fetch("/api/responden?limit=1000");
       const respondenData = await respondenRes.json();
-      
+
       if (respondenData.success) {
-        setResponden(respondenData.data);
-        setPagination(respondenData.pagination);
+        setAllResponden(respondenData.data);
       } else {
         setError(respondenData.error);
       }
@@ -83,26 +72,68 @@ export default function RespondenPage() {
 
   useEffect(() => {
     fetchData();
-  }, [pagination.page, filters.platformId]);
+  }, []);
 
-  // Handle tambah/edit
+  // Filter data berdasarkan platformId dan search (client-side)
+  const filteredResponden = useMemo(() => {
+    let filtered = allResponden;
+
+    if (filters.platformId) {
+      filtered = filtered.filter(r => r.platformId === parseInt(filters.platformId));
+    }
+
+    if (filters.search.trim() !== "") {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(r => r.nama.toLowerCase().includes(searchLower));
+    }
+
+    return filtered;
+  }, [allResponden, filters.platformId, filters.search]);
+
+  // Perbarui pagination setiap kali data filter berubah
+  useEffect(() => {
+    const total = filteredResponden.length;
+    const pages = Math.ceil(total / pagination.limit);
+    setPagination(prev => ({
+      ...prev,
+      total,
+      pages,
+      page: prev.page > pages && pages > 0 ? pages : prev.page
+    }));
+  }, [filteredResponden, pagination.limit]);
+
+  // Data untuk halaman saat ini
+  const currentResponden = useMemo(() => {
+    const start = (pagination.page - 1) * pagination.limit;
+    const end = start + pagination.limit;
+    return filteredResponden.slice(start, end);
+  }, [filteredResponden, pagination.page, pagination.limit]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPagination(prev => ({ ...prev, page: 1 }));
+    // filter sudah otomatis karena state filters berubah
+  };
+
+  const handleReset = () => {
+    setFilters({ platformId: "", search: "" });
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
   const handleSave = async (data: any) => {
     try {
-      const url = editingResponden 
+      const url = editingResponden
         ? `/api/responden/${editingResponden.id}`
         : "/api/responden";
-      
       const method = editingResponden ? "PUT" : "POST";
-      
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
       });
-      
       const result = await res.json();
-      
       if (result.success) {
+        // Refresh data
         fetchData();
         setIsModalOpen(false);
         setEditingResponden(null);
@@ -115,14 +146,11 @@ export default function RespondenPage() {
     }
   };
 
-  // Handle hapus
   const handleDelete = async (id: number) => {
     if (!confirm("Apakah Anda yakin ingin menghapus responden ini?")) return;
-    
     try {
       const res = await fetch(`/api/responden/${id}`, { method: "DELETE" });
       const result = await res.json();
-      
       if (result.success) {
         fetchData();
       } else {
@@ -132,18 +160,6 @@ export default function RespondenPage() {
       console.error(err);
       alert("Gagal menghapus data");
     }
-  };
-
-  // Handle search
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchData();
-  };
-
-  // Reset filters
-  const handleReset = () => {
-    setFilters({ platformId: "", search: "" });
-    setPagination({ ...pagination, page: 1 });
   };
 
   return (
@@ -156,29 +172,29 @@ export default function RespondenPage() {
         </p>
       </div>
 
-      {/* Stats Card */}
+      {/* Stats Card - menggunakan filteredResponden */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-xl shadow-sm border">
           <p className="text-sm text-gray-500">Total Responden</p>
-          <p className="text-2xl font-bold text-gray-800">{pagination.total}</p>
+          <p className="text-2xl font-bold text-gray-800">{filteredResponden.length}</p>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border">
           <p className="text-sm text-gray-500">Shopee</p>
           <p className="text-2xl font-bold text-gray-800">
-            {responden.filter(r => r.platform.name === "Shopee").length}
+            {filteredResponden.filter(r => r.platform.name === "Shopee").length}
           </p>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border">
           <p className="text-sm text-gray-500">TikTok Shop</p>
           <p className="text-2xl font-bold text-gray-800">
-            {responden.filter(r => r.platform.name === "TikTok Shop").length}
+            {filteredResponden.filter(r => r.platform.name === "TikTok Shop").length}
           </p>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border">
           <p className="text-sm text-gray-500">Rata-rata Umur</p>
           <p className="text-2xl font-bold text-gray-800">
-            {responden.length > 0 
-              ? Math.round(responden.reduce((sum, r) => sum + r.umur, 0) / responden.length)
+            {filteredResponden.length > 0
+              ? Math.round(filteredResponden.reduce((sum, r) => sum + r.umur, 0) / filteredResponden.length)
               : 0} tahun
           </p>
         </div>
@@ -201,7 +217,7 @@ export default function RespondenPage() {
                   </option>
                 ))}
               </select>
-              
+
               <input
                 type="text"
                 value={filters.search}
@@ -209,14 +225,14 @@ export default function RespondenPage() {
                 placeholder="Cari nama responden..."
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
-              
+
               <button
                 type="submit"
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Cari
               </button>
-              
+
               <button
                 type="button"
                 onClick={handleReset}
@@ -226,7 +242,7 @@ export default function RespondenPage() {
               </button>
             </div>
           </form>
-          
+
           <button
             onClick={() => {
               setEditingResponden(null);
@@ -250,7 +266,7 @@ export default function RespondenPage() {
           <div className="p-8 text-center text-red-600">
             <p>{error}</p>
           </div>
-        ) : responden.length === 0 ? (
+        ) : currentResponden.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <p>Tidak ada data responden</p>
           </div>
@@ -260,58 +276,40 @@ export default function RespondenPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Nama
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Umur & Gender
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Platform
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Task Completed
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tanggal Daftar
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Aksi
-                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Umur & Gender</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Platform</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task Completed</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Daftar</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {responden.map((r) => (
+                  {currentResponden.map((r) => (
                     <tr key={r.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{r.nama}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">{r.nama}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{r.umur} tahun</div>
+                        <div>{r.umur} tahun</div>
                         <div className="text-sm text-gray-500">{r.jenisKelamin}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          r.platform.name === "Shopee" 
-                            ? "bg-orange-100 text-orange-800"
-                            : "bg-blue-100 text-blue-800"
+                          r.platform.name === "Shopee" ? "bg-orange-100 text-orange-800" : "bg-blue-100 text-blue-800"
                         }`}>
                           {r.platform.name}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {r.taskResults.filter(t => t.success).length} / {r.taskResults.length}
-                        </div>
+                        <div>{r.taskResults.filter(t => t.success).length} / {r.taskResults.length}</div>
                         <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                          <div 
+                          <div
                             className="bg-green-500 h-2 rounded-full"
-                            style={{ 
-                              width: `${r.taskResults.length > 0 
-                                ? (r.taskResults.filter(t => t.success).length / r.taskResults.length) * 100 
-                                : 0}%` 
+                            style={{
+                              width: r.taskResults.length > 0
+                                ? (r.taskResults.filter(t => t.success).length / r.taskResults.length) * 100 + "%"
+                                : "0%"
                             }}
-                          ></div>
+                          />
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -319,27 +317,9 @@ export default function RespondenPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
-                          <button
-                            onClick={() => {
-                              setEditingResponden(r);
-                              setIsModalOpen(true);
-                            }}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(r.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Hapus
-                          </button>
-                          <Link
-                            href={`/responden/${r.id}`}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            Detail
-                          </Link>
+                          <button onClick={() => { setEditingResponden(r); setIsModalOpen(true); }} className="text-blue-600 hover:text-blue-900">Edit</button>
+                          <button onClick={() => handleDelete(r.id)} className="text-red-600 hover:text-red-900">Hapus</button>
+                          <Link href={`/responden/${r.id}`} className="text-green-600 hover:text-green-900">Detail</Link>
                         </div>
                       </td>
                     </tr>
@@ -354,8 +334,7 @@ export default function RespondenPage() {
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-700">
                     Menampilkan {(pagination.page - 1) * pagination.limit + 1} -{" "}
-                    {Math.min(pagination.page * pagination.limit, pagination.total)} dari{" "}
-                    {pagination.total} data
+                    {Math.min(pagination.page * pagination.limit, pagination.total)} dari {pagination.total} data
                   </div>
                   <div className="flex space-x-2">
                     <button
@@ -370,9 +349,7 @@ export default function RespondenPage() {
                         key={i}
                         onClick={() => setPagination({...pagination, page: i + 1})}
                         className={`px-3 py-1 border rounded ${
-                          pagination.page === i + 1
-                            ? "bg-blue-600 text-white border-blue-600"
-                            : "border-gray-300"
+                          pagination.page === i + 1 ? "bg-blue-600 text-white border-blue-600" : "border-gray-300"
                         }`}
                       >
                         {i + 1}
@@ -396,10 +373,7 @@ export default function RespondenPage() {
       {/* Modal */}
       <RespondenModal
         isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingResponden(null);
-        }}
+        onClose={() => { setIsModalOpen(false); setEditingResponden(null); }}
         onSave={handleSave}
         platforms={platforms}
         initialData={editingResponden}

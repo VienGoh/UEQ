@@ -10,23 +10,53 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   providers: [
     CredentialsProvider({
-      name: "Email & Password",
+      name: "Admin Login",
       credentials: {
-        email: { label: "Email", type: "email" },
+        username: { label: "Username", type: "text" }, // GANTI: email -> username
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const email = credentials?.email;
+        const username = credentials?.username; // GANTI: email -> username
         const password = credentials?.password;
-        if (!email || !password) return null;
+        
+        if (!username || !password) {
+          console.log("❌ Missing credentials");
+          return null;
+        }
 
-        const user = await prisma.user.findUnique({ where: { email } });
-        if (!user) return null;
+        try {
+          // CARI DI TABLE Admin, BUKAN User
+          const admin = await prisma.admin.findUnique({ 
+            where: { username } 
+          });
+          
+          if (!admin) {
+            console.log(`❌ Admin with username "${username}" not found`);
+            return null;
+          }
 
-        const ok = await bcrypt.compare(password, user.password);
-        if (!ok) return null;
+          // Password di seed adalah "admin123" (plain text)
+          // Jika Anda menggunakan bcrypt di seed, ganti dengan compare
+          const isPasswordValid = admin.password === password; // Untuk plain text
+          // Atau jika di-hash: await bcrypt.compare(password, admin.password);
+          
+          if (!isPasswordValid) {
+            console.log("❌ Invalid password");
+            return null;
+          }
 
-        return { id: user.id, email: user.email, name: user.name ?? "", role: user.role };
+          console.log(`✅ Admin "${username}" authenticated successfully`);
+          return { 
+            id: admin.id.toString(), 
+            username: admin.username, 
+            name: "Administrator",
+            role: "admin" 
+          };
+          
+        } catch (error) {
+          console.error("🚨 Auth error:", error);
+          return null;
+        }
       },
     }),
   ],
@@ -34,6 +64,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = (user as any).id;
+        token.username = (user as any).username; // GANTI: email -> username
         token.role = (user as any).role;
       }
       return token;
@@ -41,11 +72,17 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       session.user = {
         id: String(token.id),
-        email: session.user?.email ?? null,
-        name: session.user?.name ?? null,
-        role: (token.role as any) ?? "PENELITI",
+        username: token.username as string, // GANTI: email -> username
+        name: token.name as string,
+        role: (token.role as string) ?? "admin",
       } as any;
       return session;
     },
   },
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 };

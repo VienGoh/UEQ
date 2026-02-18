@@ -4,18 +4,28 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-// GET: Ambil semua responden
+// GET: Ambil semua responden dengan filter (platform & search)
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const platformId = searchParams.get("platformId");
+    const search = searchParams.get("search"); // 🔥 ambil parameter search
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
     const skip = (page - 1) * limit;
 
     const whereClause: any = {};
+    
     if (platformId) {
       whereClause.platformId = parseInt(platformId);
+    }
+    
+    // 🔥 TAMBAHKAN FILTER PENCARIAN BERDASARKAN NAMA
+    if (search && search.trim() !== "") {
+      whereClause.nama = {
+        contains: search, // Untuk SQLite, MySQL, PostgreSQL
+        // Jika perlu case-insensitive di PostgreSQL, tambahkan mode: 'insensitive'
+      };
     }
 
     const [responden, total] = await Promise.all([

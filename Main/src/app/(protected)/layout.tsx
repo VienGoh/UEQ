@@ -37,7 +37,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
       <footer className="border-t bg-white">
         <div className="container mx-auto px-4 py-4 text-xs text-slate-500">
-          © {new Date().getFullYear()} Sistem Bengkel
+          © {new Date().getFullYear()} ecommerce-research-app. All rights reserved.
         </div>
       </footer>
     </div>

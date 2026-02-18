@@ -93,11 +93,10 @@ export default function TestingPage() {
   // Mulai timer ketika task dimulai
   useEffect(() => {
     if (taskStarted && !timeStart) {
-      setTimeStart(new Date());
+      const start = new Date();
+      setTimeStart(start);
       const timer = setInterval(() => {
-        if (timeStart) {
-          setElapsedTime(Math.floor((new Date().getTime() - timeStart.getTime()) / 1000));
-        }
+        setElapsedTime(Math.floor((new Date().getTime() - start.getTime()) / 1000));
       }, 1000);
       return () => clearInterval(timer);
     }

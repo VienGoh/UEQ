@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import PlatformChart from "@/components/charts/platform-chart";
 import GenderChart from "@/components/charts/gender-chart";
+import UEQChart from "@/components/charts/ueq-chart"; // Komponen baru untuk UEQ
 
 export default async function DashboardPage() {
   try {
@@ -12,20 +13,15 @@ export default async function DashboardPage() {
     const totalResponden = await prisma.responden.count();
     const totalTask = await prisma.taskResult.count();
     
-    // PERBAIKAN: Gunakan where: { success: true } dengan nullable field
     const successTask = await prisma.taskResult.count({
-      where: { 
-        success: true  // Field success sekarang nullable
-      },
+      where: { success: true },
     });
     
     const successRate = totalTask === 0 ? 0 : Math.round((successTask / totalTask) * 100);
 
     // Data platform
     const platforms = await prisma.platform.findMany({
-      include: {
-        responden: true
-      }
+      include: { responden: true }
     });
 
     const platformData = platforms.map(p => ({
@@ -37,9 +33,7 @@ export default async function DashboardPage() {
     // Data jenis kelamin
     const respondenGender = await prisma.responden.groupBy({
       by: ['jenisKelamin'],
-      _count: {
-        id: true
-      }
+      _count: { id: true }
     });
 
     const genderData = respondenGender.map(g => ({
@@ -49,15 +43,14 @@ export default async function DashboardPage() {
     }));
 
     // ======================
-    // SUS SCORE CALCULATION - PERBAIKAN: Gunakan SUSAnswer (huruf besar)
+    // SUS SCORE
     // ======================
-    const answers = await prisma.sUSAnswer.findMany({
+    const susAnswers = await prisma.sUSAnswer.findMany({
       include: { question: true },
     });
 
     const susPerResponden: Record<number, number> = {};
-
-    for (const ans of answers) {
+    for (const ans of susAnswers) {
       const base = ans.question.isPositive ? ans.score - 1 : 5 - ans.score;
       susPerResponden[ans.respondenId] = (susPerResponden[ans.respondenId] || 0) + base;
     }
@@ -65,7 +58,6 @@ export default async function DashboardPage() {
     const susValues = Object.values(susPerResponden).map((total) => total * 2.5);
     const avgSUS = susValues.length === 0 ? 0 : Math.round(susValues.reduce((a, b) => a + b, 0) / susValues.length);
 
-    // Kategori SUS
     let susCategory = "";
     let susColor = "";
     if (avgSUS >= 85) {
@@ -83,16 +75,48 @@ export default async function DashboardPage() {
     }
 
     // ======================
-    // PERFORMANCE TASK - PERBAIKAN: Handle nullable success field
+    // UEQ SCORES PER CATEGORY
+    // ======================
+    const ueqAnswers = await prisma.uEQAnswer.findMany({
+      include: { question: true },
+    });
+
+    // Inisialisasi accumulator per kategori
+    const ueqCategories: Record<string, { total: number; count: number }> = {};
+
+    for (const ans of ueqAnswers) {
+      const category = ans.question.category;
+      if (!ueqCategories[category]) {
+        ueqCategories[category] = { total: 0, count: 0 };
+      }
+      ueqCategories[category].total += ans.score;
+      ueqCategories[category].count += 1;
+    }
+
+    // Hitung rata-rata per kategori
+    const ueqData = Object.entries(ueqCategories).map(([category, { total, count }]) => ({
+      category,
+      average: count > 0 ? parseFloat((total / count).toFixed(2)) : 0,
+    }));
+
+    // Urutkan kategori sesuai urutan standar UEQ
+    const categoryOrder = [
+      "Attractiveness",
+      "Perspicuity",
+      "Efficiency",
+      "Dependability",
+      "Stimulation",
+      "Novelty",
+    ];
+    ueqData.sort((a, b) => categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category));
+
+    // ======================
+    // PERFORMANCE TASK
     // ======================
     const tasks = await prisma.task.findMany({
       include: {
         taskResults: {
-          select: {
-            success: true,
-            timeOnTask: true,
-            errorCount: true
-          }
+          select: { success: true, timeOnTask: true, errorCount: true }
         }
       }
     });
@@ -100,11 +124,8 @@ export default async function DashboardPage() {
     const taskPerformance = tasks.map(task => {
       const results = task.taskResults;
       const total = results.length;
-      
-      // PERBAIKAN: Filter success yang tidak null dan true
       const successResults = results.filter(r => r.success === true);
       const success = successResults.length;
-      
       const avgTime = total === 0 ? 0 : results.reduce((sum, r) => sum + r.timeOnTask, 0) / total;
       const avgError = total === 0 ? 0 : results.reduce((sum, r) => sum + r.errorCount, 0) / total;
 
@@ -116,29 +137,19 @@ export default async function DashboardPage() {
       };
     });
 
-    // ======================
-    // PERHITUNGAN TAMBAHAN UNTUK VALIDASI
-    // ======================
-    // Hitung success rate dari task performance (untuk konfirmasi)
     const avgTaskSuccessRate = taskPerformance.length > 0 
       ? Math.round(taskPerformance.reduce((sum, t) => sum + t.successRate, 0) / taskPerformance.length)
       : 0;
 
-    // Hitung rata-rata completion time
     const avgCompletionTime = taskPerformance.length > 0
       ? Math.round(taskPerformance.reduce((sum, t) => sum + t.avgTime, 0) / taskPerformance.length)
       : 0;
 
-    // Debug log ke console server
+    // Debug log
     console.log("=== DASHBOARD METRICS ===");
     console.log("Total Responden:", totalResponden);
-    console.log("Total Tasks:", totalTask);
-    console.log("Success Tasks:", successTask);
-    console.log("Success Rate Global:", successRate, "%");
-    console.log("Average Task Success Rate:", avgTaskSuccessRate, "%");
-    console.log("Avg Completion Time:", avgCompletionTime, "s");
     console.log("Avg SUS:", avgSUS);
-    console.log("Task Count:", taskPerformance.length);
+    console.log("UEQ Data:", ueqData);
     console.log("========================");
 
     return (
@@ -217,6 +228,22 @@ export default async function DashboardPage() {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* UEQ Section */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border mb-8">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">
+            UEQ Scores per Category (skala -3 s/d +3)
+          </h2>
+          <UEQChart data={ueqData} />
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {ueqData.map((item) => (
+              <div key={item.category} className="text-center p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm font-medium text-gray-700">{item.category}</p>
+                <p className="text-xl font-bold text-blue-600">{item.average}</p>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -357,6 +384,7 @@ export default async function DashboardPage() {
             <p>• Rata-rata Success per Task: <strong>{avgTaskSuccessRate}%</strong></p>
             <p>• Perbedaan: <strong>{Math.abs(successRate - avgTaskSuccessRate)}%</strong></p>
             <p>• Avg SUS Score: <strong>{avgSUS}</strong> ({susCategory})</p>
+            <p>• UEQ Rata-rata: {ueqData.map(d => `${d.category}: ${d.average}`).join(' | ')}</p>
             <p className="text-xs">Catatan: Perbedaan kecil wajar karena pembulatan</p>
           </div>
         </div>
