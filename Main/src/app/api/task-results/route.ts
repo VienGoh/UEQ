@@ -4,7 +4,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-// POST: Simpan hasil task dari usability testing
+// POST: Simpan hasil task dari usability testing (dengan upsert)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -17,36 +17,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Cari atau buat task "Proses Belanja Online"
-    let taskId = body.taskId;
-    if (!taskId) {
-      const belanjaTask = await prisma.task.findFirst({
-        where: {
-          namaTask: {
-            contains: "Belanja"
-          }
-        }
-      });
-      
-      if (belanjaTask) {
-        taskId = belanjaTask.id;
-      } else {
-        // Buat task baru jika tidak ada
-        const newTask = await prisma.task.create({
-          data: {
-            namaTask: "Proses Belanja Online",
-            deskripsi: "Simulasi proses belanja dari pencarian hingga checkout"
-          }
-        });
-        taskId = newTask.id;
-      }
+    const respondenIdNum = parseInt(body.respondenId);
+    const taskIdNum = parseInt(body.taskId);
+
+    if (isNaN(respondenIdNum) || isNaN(taskIdNum)) {
+      return NextResponse.json(
+        { success: false, error: "respondenId dan taskId harus berupa angka" },
+        { status: 400 }
+      );
     }
 
-    // Simpan task result
-    const taskResult = await prisma.taskResult.create({
-      data: {
-        respondenId: parseInt(body.respondenId),
-        taskId: taskId,
+    // Gunakan upsert untuk menghindari duplicate key error
+    const taskResult = await prisma.taskResult.upsert({
+      where: {
+        respondenId_taskId: {
+          respondenId: respondenIdNum,
+          taskId: taskIdNum
+        }
+      },
+      update: {
+        success: body.success ?? true,
+        timeOnTask: body.timeOnTask ?? 0,
+        errorCount: body.errorCount ?? 0,
+        // updatedAt akan otomatis terisi jika ada field updatedAt, atau kita bisa biarkan
+      },
+      create: {
+        respondenId: respondenIdNum,
+        taskId: taskIdNum,
         success: body.success ?? true,
         timeOnTask: body.timeOnTask ?? 0,
         errorCount: body.errorCount ?? 0
@@ -75,7 +72,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET: Ambil task results
+// GET: Ambil task results (tidak berubah)
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;

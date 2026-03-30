@@ -10,10 +10,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Unwrap params Promise
     const { id } = await params;
     
-    // Validasi ID
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json(
         { success: false, error: "ID responden tidak valid" },
@@ -64,10 +62,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Unwrap params Promise
     const { id } = await params;
     
-    // Validasi ID
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json(
         { success: false, error: "ID responden tidak valid" },
@@ -77,7 +73,6 @@ export async function PUT(
 
     const body = await request.json();
     
-    // Validasi data input
     if (!body.nama || !body.platformId) {
       return NextResponse.json(
         { success: false, error: "Data yang diperlukan tidak lengkap" },
@@ -85,7 +80,6 @@ export async function PUT(
       );
     }
 
-    // Cek apakah responden ada
     const existingResponden = await prisma.responden.findUnique({
       where: { id: parseInt(id) }
     });
@@ -138,10 +132,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Unwrap params Promise
     const { id } = await params;
     
-    // Validasi ID
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json(
         { success: false, error: "ID responden tidak valid" },
@@ -151,7 +143,6 @@ export async function DELETE(
 
     const respondenId = parseInt(id);
     
-    // Cek apakah responden ada
     const existingResponden = await prisma.responden.findUnique({
       where: { id: respondenId }
     });
@@ -163,33 +154,15 @@ export async function DELETE(
       );
     }
 
-    // Hapus data terkait terlebih dahulu
-    // Perbaikan: Pastikan nama model sesuai dengan schema.prisma Anda
-    // Ganti sUSAnswer dengan nama model yang benar jika berbeda
-    
-    // Contoh 1: Jika model di schema.prisma adalah "SUSAnswer"
+    // Hapus data terkait (sesuaikan nama model dengan schema Anda)
     await prisma.sUSAnswer.deleteMany({
       where: { respondenId: respondenId }
-    }).catch(() => {
-      // Jika model tidak ditemukan, coba dengan nama lain
-      console.log("Model sUSAnswer mungkin tidak ditemukan");
-    });
+    }).catch(() => {}); // abaikan jika model tidak ada
 
-    // Contoh 2: Atau jika model di schema.prisma adalah "SusAnswer"
-    try {
-      await prisma.sUSAnswer.deleteMany({
-        where: { respondenId: respondenId }
-      });
-    } catch (e) {
-      console.log("Model susAnswer mungkin tidak ditemukan");
-    }
-
-    // Hapus taskResults
     await prisma.taskResult.deleteMany({
       where: { respondenId: respondenId }
     });
 
-    // Hapus responden
     await prisma.responden.delete({
       where: { id: respondenId }
     });
@@ -201,7 +174,6 @@ export async function DELETE(
   } catch (error: any) {
     console.error("Error deleting respondent:", error);
     
-    // Handle Prisma specific errors
     if (error.code === 'P2025') {
       return NextResponse.json(
         { success: false, error: "Responden tidak ditemukan" },

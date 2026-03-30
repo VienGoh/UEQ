@@ -7,6 +7,7 @@ import GenderChart from '@/components/charts/gender-chart';
 import SUSScoreDistribution from '@/components/SUSScoreDistribution';
 import PlatformComparisonChart from '@/components/PlatformComparisonChart';
 import ClientActions from './ClientActions';
+import TaskHeatmapVisual from '@/components/charts/heatmap/TaskHeatmapVisual';
 
 async function getVisualizationData() {
   // Data platform
@@ -276,6 +277,20 @@ export default async function VisualisasiPage() {
               <SUSScoreDistribution />
             </CardContent>
           </Card>
+                  {/* Heatmap Task Performance */}
+        <div className="mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <div className="w-3 h-3 rounded-full mr-2 bg-indigo-500"></div>
+                Heatmap Task Performance per Responden
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TaskHeatmapVisual />
+            </CardContent>
+          </Card>
+        </div>
 
           {/* Platform Comparison */}
           <Card>
