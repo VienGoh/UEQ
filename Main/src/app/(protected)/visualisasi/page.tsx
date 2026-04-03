@@ -10,7 +10,6 @@ import ClientActions from './ClientActions';
 import TaskHeatmapVisual from '@/components/charts/heatmap/TaskHeatmapVisual';
 
 async function getVisualizationData() {
-  // Data platform
   const platforms = await prisma.platform.findMany({
     include: { 
       responden: {
@@ -30,7 +29,6 @@ async function getVisualizationData() {
     fill: p.name === "Shopee" ? "#FF6B35" : "#00A8E8"
   }));
 
-  // Data gender
   const respondenGender = await prisma.responden.groupBy({
     by: ['jenisKelamin'],
     _count: { id: true }
@@ -42,7 +40,6 @@ async function getVisualizationData() {
     fill: g.jenisKelamin === "Laki-laki" ? "#3B82F6" : "#EC4899"
   }));
 
-  // Data task performance
   const tasks = await prisma.task.findMany({
     include: {
       taskResults: {
@@ -75,7 +72,6 @@ async function getVisualizationData() {
     };
   });
 
-  // Get platforms for filter
   const platformsFilter = await prisma.platform.findMany({
     select: {
       id: true,
@@ -94,7 +90,6 @@ async function getVisualizationData() {
 export default async function VisualisasiPage() {
   const { platformData, genderData, taskPerformance, platformsFilter } = await getVisualizationData();
 
-  // Hitung statistik ringkasan
   const totalResponden = platformData.reduce((sum, p) => sum + p.jumlah, 0);
   const avgSuccessRate = taskPerformance.length > 0 
     ? Math.round(taskPerformance.reduce((sum, t) => sum + t.successRate, 0) / taskPerformance.length)
@@ -138,7 +133,7 @@ export default async function VisualisasiPage() {
           <Card>
             <CardContent className="pt-6 text-center">
               <div className="text-3xl font-bold text-blue-600">
-                78.2 {/* Contoh data, nanti bisa diambil dari API */}
+                78.2
               </div>
               <div className="text-sm text-gray-500 mt-1">Avg SUS Score</div>
             </CardContent>
@@ -153,7 +148,6 @@ export default async function VisualisasiPage() {
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Platform Distribution */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -172,7 +166,6 @@ export default async function VisualisasiPage() {
             </CardContent>
           </Card>
 
-          {/* Gender Distribution */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -263,10 +256,10 @@ export default async function VisualisasiPage() {
           </CardContent>
         </Card>
 
-        {/* Additional Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* SUS Score Distribution */}
-          <Card>
+        {/* ✅ HANYA BAGIAN INI YANG DIUBAH */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle className="flex items-center">
                 <div className="w-3 h-3 rounded-full mr-2 bg-purple-500"></div>
@@ -277,23 +270,8 @@ export default async function VisualisasiPage() {
               <SUSScoreDistribution />
             </CardContent>
           </Card>
-                  {/* Heatmap Task Performance */}
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <div className="w-3 h-3 rounded-full mr-2 bg-indigo-500"></div>
-                Heatmap Task Performance per Responden
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <TaskHeatmapVisual />
-            </CardContent>
-          </Card>
-        </div>
 
-          {/* Platform Comparison */}
-          <Card>
+          <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle className="flex items-center">
                 <div className="w-3 h-3 rounded-full mr-2 bg-orange-500"></div>
@@ -304,6 +282,21 @@ export default async function VisualisasiPage() {
               <PlatformComparisonChart />
             </CardContent>
           </Card>
+
+          <div className="hidden lg:block"></div>
+
+          <Card className="lg:col-span-3">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <div className="w-3 h-3 rounded-full mr-2 bg-red-500"></div>
+                Heat Map dan Time on Task nya
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TaskHeatmapVisual />
+            </CardContent>
+          </Card>
+
         </div>
       </div>
     </div>

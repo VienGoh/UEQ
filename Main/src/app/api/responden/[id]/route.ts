@@ -32,6 +32,11 @@ export async function GET(
           include: {
             question: true
           }
+        },
+        ueqAnswers: { // Tambahkan jika ingin include ueqAnswers
+          include: {
+            question: true
+          }
         }
       }
     });
@@ -154,15 +159,23 @@ export async function DELETE(
       );
     }
 
-    // Hapus data terkait (sesuaikan nama model dengan schema Anda)
+    // Hapus semua data terkait (child records) secara berurutan
+    // 1. Hapus UEQAnswer (model UEQAnswer -> camelCase: uEQAnswer)
+    await prisma.uEQAnswer.deleteMany({
+      where: { respondenId: respondenId }
+    });
+
+    // 2. Hapus SUSAnswer (model SUSAnswer -> camelCase: sUSAnswer)
     await prisma.sUSAnswer.deleteMany({
       where: { respondenId: respondenId }
-    }).catch(() => {}); // abaikan jika model tidak ada
+    });
 
+    // 3. Hapus TaskResult (model TaskResult -> camelCase: taskResult)
     await prisma.taskResult.deleteMany({
       where: { respondenId: respondenId }
     });
 
+    // 4. Hapus responden
     await prisma.responden.delete({
       where: { id: respondenId }
     });
@@ -178,6 +191,18 @@ export async function DELETE(
       return NextResponse.json(
         { success: false, error: "Responden tidak ditemukan" },
         { status: 404 }
+      );
+    }
+    
+    // Tangani foreign key constraint error (P2003) jika masih ada child yang tidak terhapus
+    if (error.code === 'P2003') {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Tidak dapat menghapus responden karena masih ada data terkait (jawaban UEQ, SUS, atau task result)",
+          details: error.meta?.field_name || "Foreign key constraint"
+        },
+        { status: 409 } // Conflict
       );
     }
     

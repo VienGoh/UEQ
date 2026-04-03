@@ -405,30 +405,96 @@ export default function UsabilityTestingPage() {
 
       {error && <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700"><button onClick={() => fetchUsabilityData()} className="underline">Coba muat ulang</button></div>}
 
-      {/* Overall Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-xl shadow-sm border">
-          <div className="flex items-center"><div className="p-3 rounded-lg bg-blue-100"><svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div><div className="ml-4"><p className="text-sm text-gray-500">Overall Success Rate</p><p className="text-3xl font-bold">{overallStats.overallSuccessRate.toFixed(1)}%</p></div></div>
-          <div className="mt-4"><div className="w-full bg-gray-200 rounded-full h-2"><div className={`h-2 rounded-full ${successRateColors(overallStats.overallSuccessRate)}`} style={{ width: `${Math.min(overallStats.overallSuccessRate, 100)}%` }}></div></div><p className="text-sm text-gray-500 mt-2">{overallStats.totalSuccess} dari {overallStats.totalTasks} tugas berhasil</p></div>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border">
-          <div className="flex items-center"><div className="p-3 rounded-lg bg-green-100"><svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div><div className="ml-4"><p className="text-sm text-gray-500">Rata-rata Waktu</p><p className="text-3xl font-bold">{taskPerformance.length > 0 ? Math.round(taskPerformance.reduce((s,t)=>s+t.avgTime,0)/taskPerformance.length) : 0}s</p></div></div>
-          <p className="text-sm text-gray-500 mt-4">Rata-rata waktu penyelesaian semua tugas</p>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border">
-          <div className="flex items-center"><div className="p-3 rounded-lg bg-red-100"><svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.346 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg></div><div className="ml-4"><p className="text-sm text-gray-500">Rata-rata Error</p><p className="text-3xl font-bold">{taskPerformance.length > 0 ? (taskPerformance.reduce((s,t)=>s+t.avgErrors,0)/taskPerformance.length).toFixed(1) : "0.0"}</p></div></div>
-          <p className="text-sm text-gray-500 mt-4">Rata-rata kesalahan per tugas</p>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border">
-          <div className="flex items-center"><div className="p-3 rounded-lg bg-purple-100"><svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg></div><div className="ml-4"><p className="text-sm text-gray-500">Rata-rata SUS</p><p className="text-3xl font-bold">{susLoading ? "..." : (susData?.averageScore ?? 0).toFixed(1)}</p><p className={`text-sm font-medium ${getSUSGrade(susData?.averageScore ?? 0).color}`}>{susData ? `Grade ${getSUSGrade(susData.averageScore).grade}` : ""}</p></div></div>
-          <p className="text-sm text-gray-500 mt-4">Skor System Usability Scale (0-100)</p>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border">
-          <div className="flex items-center"><div className="p-3 rounded-lg bg-indigo-100"><svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg></div><div className="ml-4"><p className="text-sm text-gray-500">Rata-rata UEQ</p><p className="text-3xl font-bold">{ueqLoading ? "..." : (ueqData?.overallAverage ?? 0).toFixed(2)}</p></div></div>
-          <p className="text-sm text-gray-500 mt-4">Skor keseluruhan UEQ (skala -3 s.d. 3)</p>
-        </div>
+  {/* Overall Stats - Responsive & Anti Potong */}
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 mb-8">
+  {/* Card 1: Success Rate */}
+  <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border flex flex-col">
+    <div className="flex items-center gap-3">
+      <div className="p-2 rounded-lg bg-blue-100 flex-shrink-0">
+        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
       </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs md:text-sm text-gray-500 truncate">Overall Success Rate</p>
+        <p className="text-2xl md:text-3xl font-bold">{overallStats.overallSuccessRate.toFixed(1)}%</p>
+      </div>
+    </div>
+    <div className="mt-3">
+      <div className="w-full bg-gray-200 rounded-full h-2">
+        <div className={`h-2 rounded-full ${successRateColors(overallStats.overallSuccessRate)}`} style={{ width: `${Math.min(overallStats.overallSuccessRate, 100)}%` }}></div>
+      </div>
+      <p className="text-xs text-gray-500 mt-2 break-words">{overallStats.totalSuccess} dari {overallStats.totalTasks} tugas berhasil</p>
+    </div>
+  </div>
 
+  {/* Card 2: Rata-rata Waktu */}
+  <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border flex flex-col">
+    <div className="flex items-center gap-3">
+      <div className="p-2 rounded-lg bg-green-100 flex-shrink-0">
+        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs md:text-sm text-gray-500 truncate">Rata-rata Waktu</p>
+        <p className="text-2xl md:text-3xl font-bold">{taskPerformance.length > 0 ? Math.round(taskPerformance.reduce((s,t)=>s+t.avgTime,0)/taskPerformance.length) : 0}s</p>
+      </div>
+    </div>
+    <p className="text-xs text-gray-500 mt-3 break-words">Rata-rata waktu penyelesaian semua tugas</p>
+  </div>
+
+  {/* Card 3: Rata-rata Error */}
+  <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border flex flex-col">
+    <div className="flex items-center gap-3">
+      <div className="p-2 rounded-lg bg-red-100 flex-shrink-0">
+        <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.346 16.5c-.77.833.192 2.5 1.732 2.5z" />
+        </svg>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs md:text-sm text-gray-500 truncate">Rata-rata Error</p>
+        <p className="text-2xl md:text-3xl font-bold">{taskPerformance.length > 0 ? (taskPerformance.reduce((s,t)=>s+t.avgErrors,0)/taskPerformance.length).toFixed(1) : "0.0"}</p>
+      </div>
+    </div>
+    <p className="text-xs text-gray-500 mt-3 break-words">Rata-rata kesalahan per tugas</p>
+  </div>
+
+  {/* Card 4: SUS */}
+  <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border flex flex-col">
+    <div className="flex items-center gap-3">
+      <div className="p-2 rounded-lg bg-purple-100 flex-shrink-0">
+        <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs md:text-sm text-gray-500 truncate">Rata-rata SUS</p>
+        <p className="text-2xl md:text-3xl font-bold">{susLoading ? "..." : (susData?.averageScore ?? 0).toFixed(1)}</p>
+        <p className={`text-xs font-medium ${getSUSGrade(susData?.averageScore ?? 0).color}`}>
+          {susData ? `Grade ${getSUSGrade(susData.averageScore).grade}` : ""}
+        </p>
+      </div>
+    </div>
+    <p className="text-xs text-gray-500 mt-3 break-words">Skor System Usability Scale (0-100)</p>
+  </div>
+
+  {/* Card 5: UEQ */}
+  <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border flex flex-col">
+    <div className="flex items-center gap-3">
+      <div className="p-2 rounded-lg bg-indigo-100 flex-shrink-0">
+        <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        </svg>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs md:text-sm text-gray-500 truncate">Rata-rata UEQ</p>
+        <p className="text-2xl md:text-3xl font-bold">{ueqLoading ? "..." : (ueqData?.overallAverage ?? 0).toFixed(2)}</p>
+      </div>
+    </div>
+    <p className="text-xs text-gray-500 mt-3 break-words">Skor keseluruhan UEQ (skala -3 s.d. 3)</p>
+  </div>
+</div>
       {/* Platform Comparison (sama seperti sebelumnya) */}
       {platformData.length > 0 && (
         <div className="bg-white p-6 rounded-xl shadow-sm border mb-8">
