@@ -1,5 +1,5 @@
 {
-  "name": "ecommerce-research-app",
+  "name": "research-app",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -16,10 +16,11 @@
     "db:seed": "node prisma/seed.cjs",
     "db:test": "node src/scripts/test-db.js",
     "dev:turso": "dotenv -e .env.turso -- next dev",
-    "build:turso": "dotenv -e .env.turso -- prisma generate && next build"
+    "build:turso": "dotenv -e .env.turso -- prisma generate && next build",
+    "cron": "node cron-sync.js"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.1",
+    "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.2",
     "chart.js": "^4.5.1",
     "constants": "^0.0.2",
@@ -33,8 +34,8 @@
     "next": "^16.0.10",
     "next-auth": "^4.24.13",
     "node": "^24.12.0",
+    "node-cron": "^4.2.1",
     "nodemailer": "^7.0.11",
-    "prisma": "^6.19.1",
     "react": "^18.3.1",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^18.3.1",
@@ -53,6 +54,7 @@
     "@types/nodemailer": "^7.0.4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "prisma": "^7.8.0",
     "tailwindcss": "^4.1.13",
     "tsx": "^4.19.2",
     "typescript": "^5"
