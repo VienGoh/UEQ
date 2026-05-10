@@ -7,147 +7,98 @@ datasource db {
   url      = "file:./database.db"
 }
 
-// Enum disimpan sebagai TEXT di SQLite
-enum Role {
-  ADMIN
-  STAFF
-}
-
-enum MarketplaceType {
-  TOKOPEDIA
-  SHOPEE
-}
-
-enum OrderStatus {
-  NEW
-  PROCESSING
-  SHIPPED
-  COMPLETED
-  CANCELLED
-}
-
-enum SyncType {
-  ORDER_PULL
-  STOCK_PUSH
-  STATUS_UPDATE
-}
-
-enum SyncStatus {
-  SUCCESS
-  FAILED
-  PENDING
-}
-
-// 🔐 MODEL USER (Disesuaikan dengan sistem login lama)
-model User {
+model Admin {
   id        Int      @id @default(autoincrement())
-  username  String   @unique          // Sesuaikan dengan field login lama
-  email     String?  @unique
+  username  String   @unique
   password  String
-  fullName  String?
-  role      Role     @default(STAFF)
-  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Jika tabel lama bernama berbeda, gunakan:
-  // @@map("nama_tabel_user_lama")
 }
 
-model Marketplace {
-  id            Int      @id @default(autoincrement())
-  type          MarketplaceType
-  shopName      String
-  shopId        String   @unique
-  apiKey        String
-  apiSecret     String
-  accessToken   String?
-  refreshToken  String?
-  tokenExpiry   DateTime?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  orders        Order[]
-  marketplaceProducts MarketplaceProduct[]
-  syncLogs      SyncLog[]
+model Platform {
+  id        Int         @id @default(autoincrement())
+  name      String      @unique // Shopee / TikTok Shop
+  responden Responden[]
 }
 
-model Product {
-  id          Int      @id @default(autoincrement())
-  sku         String   @unique
-  name        String
-  description String?
-  price       Decimal  @default(0)
-  isActive    Boolean  @default(true)
-  stock       Stock?
-  marketplaceProducts MarketplaceProduct[]
-  orderItems  OrderItem[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model Responden {
+  id           Int      @id @default(autoincrement())
+  nama         String
+  umur         Int
+  jenisKelamin String
+  platformId   Int
+  platform     Platform @relation(fields: [platformId], references: [id])
+  createdAt    DateTime @default(now())
+
+  taskResults TaskResult[]
+  susAnswers  SUSAnswer[]
+  ueqAnswers  UEQAnswer[] // <--- TAMBAHKAN BARIS INI
+
+  @@unique([platformId, id])
 }
 
-model Stock {
+model Task {
   id        Int      @id @default(autoincrement())
-  productId Int      @unique
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  quantity  Int      @default(0)   // Stok fisik tersedia
-  reserved  Int      @default(0)   // Stok dipesan tapi belum shipped (cegah overselling)
-  updatedAt DateTime @updatedAt
-}
-
-model MarketplaceProduct {
-  id            Int         @id @default(autoincrement())
-  marketplaceId Int
-  marketplace   Marketplace @relation(fields: [marketplaceId], references: [id], onDelete: Cascade)
-  productId     Int
-  product       Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  marketplaceItemId String  // item_id Tokopedia / shop_item_id Shopee
-  marketplaceSku String?    // SKU di marketplace (jika berbeda dengan SKU internal)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  @@unique([marketplaceId, marketplaceItemId])
-}
-
-model Order {
-  id            Int           @id @default(autoincrement())
-  marketplaceId Int
-  marketplace   Marketplace   @relation(fields: [marketplaceId], references: [id])
-  marketplaceOrderId String   @unique // ID pesanan dari Tokopedia/Shopee
-  customerName  String
-  customerPhone String?
-  address       String
-  status        OrderStatus   @default(NEW)
-  totalAmount   Decimal       @default(0)
-  orderedAt     DateTime
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  items         OrderItem[]
-  syncLogs      SyncLog[]
-}
-
-model OrderItem {
-  id        Int     @id @default(autoincrement())
-  orderId   Int
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId Int
-  product   Product @relation(fields: [productId], references: [id])
-  quantity  Int
-  price     Decimal
+  namaTask  String
+  deskripsi String
   createdAt DateTime @default(now())
+
+  taskResults TaskResult[]
 }
 
-model SyncLog {
-  id            Int         @id @default(autoincrement())
-  marketplaceId Int?
-  marketplace   Marketplace? @relation(fields: [marketplaceId], references: [id])
-  orderId       Int?
-  order         Order?      @relation(fields: [orderId], references: [id])
-  type          SyncType
-  status        SyncStatus  @default(PENDING)
-  message       String?
-  payload       String?     // JSON string untuk debugging
-  createdAt     DateTime    @default(now())
+// schema.prisma - ubah field success menjadi nullable
+model TaskResult {
+  id          Int      @id @default(autoincrement())
+  respondenId Int
+  taskId      Int
+  success     Boolean? // TAMBAHKAN ? untuk nullable
+  timeOnTask  Float // dalam detik
+  errorCount  Int // jumlah error
+  createdAt   DateTime @default(now())
+
+  responden Responden @relation(fields: [respondenId], references: [id])
+  task      Task      @relation(fields: [taskId], references: [id])
+
+  @@unique([respondenId, taskId])
+}
+
+model SUSQuestion {
+  id         Int     @id @default(autoincrement())
+  question   String
+  isPositive Boolean // untuk perhitungan SUS
+
+  answers SUSAnswer[]
+}
+
+model SUSAnswer {
+  id          Int @id @default(autoincrement())
+  respondenId Int
+  questionId  Int
+  score       Int // 1–5
+
+  responden Responden   @relation(fields: [respondenId], references: [id])
+  question  SUSQuestion @relation(fields: [questionId], references: [id])
+
+  @@unique([respondenId, questionId]) // Mencegah duplikat jawaban untuk pertanyaan yang sama
+}
+
+model UEQQuestion {
+  id             Int         @id @default(autoincrement())
+  category       String // Attractiveness, Perspicuity, etc.
+  leftAdjective  String
+  rightAdjective String
+  answers        UEQAnswer[]
+
+  @@unique([category, leftAdjective, rightAdjective]) // optional
+}
+
+model UEQAnswer {
+  id          Int @id @default(autoincrement())
+  respondenId Int
+  questionId  Int
+  score       Int // -3 to 3
+
+  responden Responden   @relation(fields: [respondenId], references: [id])
+  question  UEQQuestion @relation(fields: [questionId], references: [id])
+
+  @@unique([respondenId, questionId])
 }
